@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"os"
+	"strings"
 )
 
 func upload(url string, data map[string]string,
@@ -54,8 +55,12 @@ func upload(url string, data map[string]string,
 	if err != nil {
 		return err
 	}
+	body := string(respBody)
 	fmt.Println(resp.StatusCode)
-	fmt.Println(string(respBody))
+	// fmt.Println(body)
+	urls := strings.Split(body, "\n")
+	fmt.Println(urls[0])
+	fmt.Println(urls[len(urls)-1])
 	return nil
 
 }
