@@ -1,64 +1,48 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
-	"io"
-	"io/ioutil"
-	"mime/multipart"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
+
+	"github.com/mozillazg/request"
 )
 
 func upload(url string, data map[string]string,
 	paramname string, filename string,
 ) (s []string, err error) {
 	client := &http.Client{}
-	bodyBuf := &bytes.Buffer{}
-	bodyWriter := multipart.NewWriter(bodyBuf)
+	a := request.NewArgs(client)
 
-	fileWriter, err := bodyWriter.CreateFormFile(paramname, filename)
-	if err != nil {
-		fmt.Println("error writing to buffer")
-		return
-	}
-
+	a.Data = data
 	f, err := os.Open(filename)
+	defer f.Close()
 	if err != nil {
 		fmt.Println("error open file")
 		return
 	}
-
-	_, err = io.Copy(fileWriter, f)
-	if err != nil {
-		return
+	a.Files = []request.FileField{
+		request.FileField{paramname, filename, f},
+	}
+	a.Headers = map[string]string{
+		"User-Agent": "go-bild/0.1.0",
 	}
 
-	for k, v := range data {
-		bodyWriter.WriteField(k, v)
-	}
+	resp, err := request.Post(url, a)
 
-	contentType := bodyWriter.FormDataContentType()
-	bodyWriter.Close()
-
-	req, err := http.NewRequest("POST", url, bodyBuf)
-	req.Header.Set("Content-Type", contentType)
-	req.Header.Set("User-Agent", "go-bild/0.1.0")
-
-	resp, err := client.Do(req)
 	if err != nil {
 		return
 	}
 	defer resp.Body.Close()
-	respBody, err := ioutil.ReadAll(resp.Body)
+	body, err := resp.Text()
 	if err != nil {
 		return
 	}
-	body := string(respBody)
-	if resp.StatusCode >= 400 {
+	if !resp.OK() {
+		fmt.Println("Response Status:", resp.Status)
 		return
 	}
 	// fmt.Println(body)
